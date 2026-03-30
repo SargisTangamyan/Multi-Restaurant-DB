@@ -10,7 +10,11 @@ CREATE TRIGGER trg_users_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE users
+
+    -- Prevent self-recursion from the UPDATE below
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE u
     SET updated_at = GETDATE()
     FROM users u
              INNER JOIN inserted i ON u.id = i.id;
@@ -23,7 +27,11 @@ CREATE TRIGGER trg_restaurants_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE restaurants
+
+    -- Prevent self-recursion from the UPDATE below
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE r
     SET updated_at = GETDATE()
     FROM restaurants r
              INNER JOIN inserted i ON r.id = i.id;
@@ -36,10 +44,13 @@ CREATE TRIGGER trg_restaurant_branches_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE restaurant_branches
+    -- Prevent self-recursion from the UPDATE below
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE rb
     SET updated_at = GETDATE()
-    FROM restaurant_branches r
-             INNER JOIN inserted i ON r.id = i.id;
+    FROM restaurant_branches rb
+             INNER JOIN inserted i ON rb.id = i.id;
 END;
 GO
 
@@ -49,10 +60,13 @@ CREATE TRIGGER trg_restaurant_staffs_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE restaurant_staffs
+    -- Prevent self-recursion from the UPDATE below
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE rs
     SET updated_at = GETDATE()
-    FROM restaurant_staffs r
-             INNER JOIN inserted i ON r.id = i.id;
+    FROM restaurant_staffs rs
+             INNER JOIN inserted i ON rs.id = i.id;
 END;
 GO
 
@@ -62,20 +76,24 @@ CREATE TRIGGER trg_categories_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE categories
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE c
     SET updated_at = GETDATE()
     FROM categories c
              INNER JOIN inserted i ON c.id = i.id;
 END;
 GO
 
-CREATE TRIGGER trg_dishes_updated_at
+CREATE OR ALTER TRIGGER trg_dishes_updated_at
     ON dishes
     AFTER UPDATE
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE dishes
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE d
     SET updated_at = GETDATE()
     FROM dishes d
              INNER JOIN inserted i ON d.id = i.id;
@@ -88,7 +106,9 @@ CREATE TRIGGER trg_orders_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE orders
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE o
     SET updated_at = GETDATE()
     FROM orders o
              INNER JOIN inserted i ON o.id = i.id;
@@ -101,10 +121,27 @@ CREATE TRIGGER trg_suborders_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE suborders
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE s
     SET updated_at = GETDATE()
     FROM suborders s
              INNER JOIN inserted i ON s.id = i.id;
+END;
+GO
+
+CREATE TRIGGER trg_order_items_updated_at
+    ON order_items
+    AFTER UPDATE
+    AS
+BEGIN
+    SET NOCOUNT ON;
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE oi
+    SET updated_at = GETDATE()
+    FROM order_items oi
+             INNER JOIN inserted i ON oi.id = i.id;
 END;
 GO
 
@@ -114,10 +151,12 @@ CREATE TRIGGER trg_dish_reviews_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE dish_reviews
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE dr
     SET updated_at = GETDATE()
-    FROM dish_reviews d
-             INNER JOIN inserted i ON d.id = i.id;
+    FROM dish_reviews dr
+             INNER JOIN inserted i ON dr.id = i.id;
 END;
 GO
 
@@ -127,7 +166,9 @@ CREATE TRIGGER trg_carts_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE carts
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE c
     SET updated_at = GETDATE()
     FROM carts c
              INNER JOIN inserted i ON c.id = i.id;
@@ -140,10 +181,12 @@ CREATE TRIGGER trg_cart_items_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE cart_items
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE ci
     SET updated_at = GETDATE()
-    FROM cart_items c
-             INNER JOIN inserted i ON c.id = i.id;
+    FROM cart_items ci
+             INNER JOIN inserted i ON ci.id = i.id;
 END;
 GO
 
@@ -153,10 +196,12 @@ CREATE TRIGGER trg_ingredients_updated_at
     AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE ingredients
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE ing
     SET updated_at = GETDATE()
-    FROM ingredients n
-             INNER JOIN inserted i ON n.id = i.id;
+    FROM ingredients ing
+             INNER JOIN inserted i ON ing.id = i.id;
 END;
 GO
 
@@ -164,16 +209,19 @@ GO
 -- SOFT DELETE TRIGGERS
 -- ========================================================
 
--- Soft-delete restaurants, staff, and orders when user is soft-deleted
 CREATE TRIGGER trg_softdelete_user
     ON users
     AFTER UPDATE
     AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted WHERE deleted_at IS NOT NULL)
+
+    IF EXISTS (SELECT 1
+               FROM inserted i
+                        JOIN deleted d ON d.id = i.id
+               WHERE d.deleted_at IS NULL
+                 AND i.deleted_at IS NOT NULL)
         BEGIN
-            -- Soft-delete restaurants owned by user
             UPDATE r
             SET deleted_at = GETDATE()
             FROM restaurants r
@@ -181,7 +229,6 @@ BEGIN
             WHERE i.deleted_at IS NOT NULL
               AND r.deleted_at IS NULL;
 
-            -- Soft-delete staff memberships of user
             UPDATE rs
             SET deleted_at = GETDATE()
             FROM restaurant_staffs rs
@@ -189,27 +236,46 @@ BEGIN
             WHERE i.deleted_at IS NOT NULL
               AND rs.deleted_at IS NULL;
 
-            -- Soft-delete orders
             UPDATE o
             SET deleted_at = GETDATE()
             FROM orders o
                      JOIN inserted i ON o.user_id = i.id
             WHERE i.deleted_at IS NOT NULL
               AND o.deleted_at IS NULL;
+
+            UPDATE so
+            SET deleted_at = GETDATE()
+            FROM suborders so
+                     JOIN orders o ON so.order_id = o.id
+                     JOIN inserted i ON o.user_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND so.deleted_at IS NULL;
+
+            UPDATE oi
+            SET deleted_at = GETDATE()
+            FROM order_items oi
+                     JOIN suborders so ON oi.suborder_id = so.id
+                     JOIN orders o ON so.order_id = o.id
+                     JOIN inserted i ON o.user_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND oi.deleted_at IS NULL;
         END
 END;
 GO
 
--- Soft-delete restaurant branches, dishes, and staff when restaurant is soft-deleted
 CREATE TRIGGER trg_softdelete_restaurant
     ON restaurants
     AFTER UPDATE
     AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted WHERE deleted_at IS NOT NULL)
+
+    IF EXISTS (SELECT 1
+               FROM inserted i
+                        JOIN deleted d ON d.id = i.id
+               WHERE d.deleted_at IS NULL
+                 AND i.deleted_at IS NOT NULL)
         BEGIN
-            -- Soft-delete branches
             UPDATE rb
             SET deleted_at = GETDATE()
             FROM restaurant_branches rb
@@ -217,7 +283,6 @@ BEGIN
             WHERE i.deleted_at IS NOT NULL
               AND rb.deleted_at IS NULL;
 
-            -- Soft-delete dishes
             UPDATE d
             SET deleted_at = GETDATE()
             FROM dishes d
@@ -225,59 +290,102 @@ BEGIN
             WHERE i.deleted_at IS NOT NULL
               AND d.deleted_at IS NULL;
 
-            -- Soft-delete staff
             UPDATE rs
             SET deleted_at = GETDATE()
             FROM restaurant_staffs rs
                      JOIN inserted i ON rs.restaurant_id = i.id
             WHERE i.deleted_at IS NOT NULL
               AND rs.deleted_at IS NULL;
+
+            UPDATE so
+            SET deleted_at = GETDATE()
+            FROM suborders so
+                     JOIN restaurant_branches rb ON so.restaurant_branch_id = rb.id
+                     JOIN inserted i ON rb.restaurant_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND so.deleted_at IS NULL;
+
+            UPDATE oi
+            SET deleted_at = GETDATE()
+            FROM order_items oi
+                     JOIN suborders so ON oi.suborder_id = so.id
+                     JOIN restaurant_branches rb ON so.restaurant_branch_id = rb.id
+                     JOIN inserted i ON rb.restaurant_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND oi.deleted_at IS NULL;
         END
 END;
 GO
 
--- Note: No soft-delete for branches as it doesn't have child tables with deleted_at.
--- Note: No soft-delete for suborders as it doesn't have deleted_at.
--- Note: No soft-delete for dishes child tables as they don't have deleted_at.
+CREATE TRIGGER trg_softdelete_restaurant_branch
+    ON restaurant_branches
+    AFTER UPDATE
+    AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1
+               FROM inserted i
+                        JOIN deleted d ON d.id = i.id
+               WHERE d.deleted_at IS NULL
+                 AND i.deleted_at IS NOT NULL)
+        BEGIN
+            UPDATE so
+            SET deleted_at = GETDATE()
+            FROM suborders so
+                     JOIN inserted i ON so.restaurant_branch_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND so.deleted_at IS NULL;
+
+            UPDATE oi
+            SET deleted_at = GETDATE()
+            FROM order_items oi
+                     JOIN suborders so ON oi.suborder_id = so.id
+                     JOIN inserted i ON so.restaurant_branch_id = i.id
+            WHERE i.deleted_at IS NOT NULL
+              AND oi.deleted_at IS NULL;
+        END
+END;
+GO
 
 -- ========================================================
 -- DISH AVAILABILITY TRIGGERS
 -- ========================================================
 
--- Remove from active carts when a dish becomes unavailable (is_available = 0)
 CREATE TRIGGER trg_dish_unavailable
     ON dishes
     AFTER UPDATE
     AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted WHERE is_available = 0)
-        BEGIN
-            DELETE ci
-            FROM cart_items ci
-                     JOIN inserted i ON ci.dish_id = i.id
-            WHERE i.is_available = 0;
-        END
+    BEGIN
+        DELETE ci
+        FROM dbo.cart_items ci
+                 JOIN inserted i ON ci.dish_id = i.id
+                 JOIN deleted d ON d.id = i.id
+        WHERE (d.is_available = 1 AND i.is_available = 0)
+           OR (d.deleted_at IS NULL AND i.deleted_at IS NOT NULL);
+    END
 END;
 GO
 
--- Prevent adding unavailable dishes to cart
 CREATE TRIGGER trg_cart_check
     ON cart_items
     INSTEAD OF INSERT
     AS
 BEGIN
     SET NOCOUNT ON;
+
     IF EXISTS (SELECT 1
                FROM inserted i
                         JOIN dishes d ON i.dish_id = d.id
-               WHERE d.is_available = 0)
+               WHERE d.is_available = 0
+                  OR d.deleted_at IS NOT NULL)
         BEGIN
-            RAISERROR ('Dish not available', 16, 1);
-            RETURN;
+            THROW 50001, 'Dish not available', 1;
         END;
 
-    INSERT INTO cart_items(cart_id, dish_id, quantity)
+    INSERT INTO cart_items (cart_id, dish_id, quantity)
     SELECT cart_id, dish_id, quantity
     FROM inserted;
 END;
@@ -287,66 +395,97 @@ GO
 -- CALCULATION TRIGGERS
 -- ========================================================
 
--- Update dish average rating and reviews count
-CREATE TRIGGER trg_update_rating
-    ON dish_reviews
+CREATE OR ALTER TRIGGER dbo.trg_update_rating
+    ON dbo.dish_reviews
     AFTER INSERT, UPDATE, DELETE
     AS
 BEGIN
     SET NOCOUNT ON;
+    ;
+    WITH AffectedDishes AS (SELECT DISTINCT dish_id
+                            FROM inserted
+                            WHERE dish_id IS NOT NULL
+
+                            UNION
+
+                            SELECT DISTINCT dish_id
+                            FROM deleted
+                            WHERE dish_id IS NOT NULL),
+         Aggregated AS (SELECT ad.dish_id,
+                               COALESCE(AVG(CAST(dr.rating AS DECIMAL(4, 2))), 0) AS average_rating,
+                               COUNT(dr.id)                                       AS reviews_count
+                        FROM AffectedDishes ad
+                                 LEFT JOIN dbo.dish_reviews dr
+                                           ON dr.dish_id = ad.dish_id
+                        GROUP BY ad.dish_id)
     UPDATE d
-    SET average_rating = ISNULL(
-            (SELECT AVG(CAST(r.rating AS DECIMAL(2, 1)))
-             FROM dish_reviews r
-             WHERE r.dish_id = d.id), 0),
-        reviews_count  = (SELECT COUNT(*)
-                          FROM dish_reviews r
-                          WHERE r.dish_id = d.id)
-    FROM dishes d
-    WHERE d.id IN (SELECT dish_id
-                   FROM inserted
-                   UNION
-                   SELECT dish_id
-                   FROM deleted);
+    SET average_rating = a.average_rating,
+        reviews_count  = a.reviews_count
+    FROM dbo.dishes d
+             INNER JOIN Aggregated a ON a.dish_id = d.id
+    WHERE ISNULL(d.average_rating, 0) <> a.average_rating
+       OR ISNULL(d.reviews_count, 0) <> a.reviews_count;
 END;
 GO
 
--- Update suborder total price
-CREATE TRIGGER trg_suborder_total
-    ON order_items
+CREATE OR ALTER TRIGGER dbo.trg_suborder_total
+    ON dbo.order_items
     AFTER INSERT, UPDATE, DELETE
     AS
 BEGIN
     SET NOCOUNT ON;
+    ;
+    WITH AffectedSuborders AS (SELECT DISTINCT suborder_id
+                               FROM inserted
+                               WHERE suborder_id IS NOT NULL
+
+                               UNION
+
+                               SELECT DISTINCT suborder_id
+                               FROM deleted
+                               WHERE suborder_id IS NOT NULL),
+         Totals AS (SELECT a.suborder_id,
+                           COALESCE(SUM(oi.quantity * oi.price), 0) AS total_price
+                    FROM AffectedSuborders a
+                             LEFT JOIN dbo.order_items oi
+                                       ON oi.suborder_id = a.suborder_id
+                                           AND oi.deleted_at IS NULL
+                    GROUP BY a.suborder_id)
     UPDATE s
-    SET total_price = (SELECT ISNULL(SUM(quantity * price), 0)
-                       FROM order_items oi
-                       WHERE oi.suborder_id = s.id)
-    FROM suborders s
-    WHERE s.id IN (SELECT suborder_id
-                   FROM inserted
-                   UNION
-                   SELECT suborder_id
-                   FROM deleted);
+    SET s.total_price = t.total_price
+    FROM dbo.suborders s
+             INNER JOIN Totals t ON t.suborder_id = s.id
+    WHERE s.total_price <> t.total_price;
 END;
 GO
 
--- Update order total price when suborder price changes
-CREATE TRIGGER trg_order_total
-    ON suborders
-    AFTER UPDATE
+CREATE OR ALTER TRIGGER dbo.trg_order_total
+    ON dbo.suborders
+    AFTER INSERT, UPDATE, DELETE
     AS
 BEGIN
     SET NOCOUNT ON;
+    ;
+    WITH AffectedOrders AS (SELECT DISTINCT order_id
+                            FROM inserted
+                            WHERE order_id IS NOT NULL
+
+                            UNION
+
+                            SELECT DISTINCT order_id
+                            FROM deleted
+                            WHERE order_id IS NOT NULL),
+         Totals AS (SELECT a.order_id,
+                           COALESCE(SUM(s.total_price), 0) AS total_price
+                    FROM AffectedOrders a
+                             LEFT JOIN dbo.suborders s
+                                       ON s.order_id = a.order_id
+                                           AND s.deleted_at IS NULL
+                    GROUP BY a.order_id)
     UPDATE o
-    SET total_price = (SELECT ISNULL(SUM(s.total_price), 0)
-                       FROM suborders s
-                       WHERE s.order_id = o.id)
-    FROM orders o
-    WHERE o.id IN (SELECT order_id
-                   FROM inserted
-                   UNION
-                   SELECT order_id
-                   FROM deleted);
+    SET o.total_price = t.total_price
+    FROM dbo.orders o
+             INNER JOIN Totals t ON t.order_id = o.id
+    WHERE o.total_price <> t.total_price;
 END;
 GO

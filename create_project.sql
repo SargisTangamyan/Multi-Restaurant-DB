@@ -157,21 +157,21 @@ CREATE INDEX idx_categories_deleted_at ON categories (deleted_at);
 CREATE TABLE dishes
 (
     id             BIGINT IDENTITY PRIMARY KEY,
-    slug           VARCHAR(255)  NOT NULL,
-    category_id    BIGINT        NOT NULL,
-    restaurant_id  BIGINT        NOT NULL,
-    name           VARCHAR(255)  NOT NULL,
+    slug           VARCHAR(255)   NOT NULL,
+    category_id    BIGINT         NOT NULL,
+    restaurant_id  BIGINT         NOT NULL,
+    name           VARCHAR(255)   NOT NULL,
     description    varchar(max),
     price          DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
-    image          VARCHAR(255)  NOT NULL,
+    image          VARCHAR(255)   NOT NULL,
     thumbnail      VARCHAR(255),
 
-    average_rating DECIMAL(2, 1)          DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
-    reviews_count  INT                    DEFAULT 0 CHECK (reviews_count >= 0),
-    is_available   BIT           NOT NULL DEFAULT 1,
+    average_rating DECIMAL(2, 1)           DEFAULT 0 CHECK (average_rating >= 0 AND average_rating <= 5),
+    reviews_count  INT                     DEFAULT 0 CHECK (reviews_count >= 0),
+    is_available   BIT            NOT NULL DEFAULT 1,
 
-    created_at     DATETIME               DEFAULT GETDATE(),
-    updated_at     DATETIME               DEFAULT GETDATE(),
+    created_at     DATETIME                DEFAULT GETDATE(),
+    updated_at     DATETIME                DEFAULT GETDATE(),
     deleted_at     DATETIME,
 
     UNIQUE (restaurant_id, slug),
@@ -210,13 +210,13 @@ CREATE TABLE carts
 -- =======================
 CREATE TABLE cart_items
 (
-    id       BIGINT IDENTITY PRIMARY KEY,
-    cart_id  BIGINT NOT NULL,
-    dish_id  BIGINT NOT NULL,
-    quantity INT    NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    id         BIGINT IDENTITY PRIMARY KEY,
+    cart_id    BIGINT NOT NULL,
+    dish_id    BIGINT NOT NULL,
+    quantity   INT    NOT NULL DEFAULT 1 CHECK (quantity > 0),
 
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE(),
+    created_at DATETIME        DEFAULT GETDATE(),
+    updated_at DATETIME        DEFAULT GETDATE(),
 
     CONSTRAINT uq_cart_dish UNIQUE (cart_id, dish_id),
 
@@ -266,8 +266,8 @@ CREATE TABLE user_allergies
 -- =======================
 CREATE TABLE dish_ingredients
 (
-    dish_id       BIGINT        NOT NULL,
-    ingredient_id BIGINT        NOT NULL,
+    dish_id       BIGINT         NOT NULL,
+    ingredient_id BIGINT         NOT NULL,
     quantity      DECIMAL(10, 2) NOT NULL,
 
     CONSTRAINT pk_dish_ingredients PRIMARY KEY (dish_id, ingredient_id),
@@ -287,21 +287,21 @@ CREATE TABLE dish_ingredients
 CREATE TABLE orders
 (
     id               BIGINT IDENTITY PRIMARY KEY,
-    user_id          BIGINT        NOT NULL,
+    user_id          BIGINT         NOT NULL,
     total_price      DECIMAL(10, 2) NOT NULL CHECK (total_price >= 0),
 
-    status           VARCHAR(20)   NOT NULL DEFAULT 'pending'
+    status           VARCHAR(20)    NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'confirmed', 'preparing', 'completed', 'delivered', 'canceled')),
 
-    payment_method   VARCHAR(10)   NOT NULL
+    payment_method   VARCHAR(10)    NOT NULL
         CHECK (payment_method IN ('cash', 'card')),
 
-    delivery_address VARCHAR(255)  NOT NULL,
+    delivery_address VARCHAR(255)   NOT NULL,
     contact_phone    VARCHAR(30),
     delivery_fee     DECIMAL(10, 2) CHECK (delivery_fee >= 0),
 
-    created_at       DATETIME               DEFAULT GETDATE(),
-    updated_at       DATETIME               DEFAULT GETDATE(),
+    created_at       DATETIME                DEFAULT GETDATE(),
+    updated_at       DATETIME                DEFAULT GETDATE(),
     deleted_at       DATETIME,
 
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -317,16 +317,17 @@ CREATE INDEX idx_orders_deleted_at ON orders (deleted_at);
 CREATE TABLE suborders
 (
     id                   BIGINT IDENTITY PRIMARY KEY,
-    order_id             BIGINT      NOT NULL,
-    restaurant_branch_id BIGINT      NOT NULL,
+    order_id             BIGINT         NOT NULL,
+    restaurant_branch_id BIGINT         NOT NULL,
 
-    status               VARCHAR(20) NOT NULL DEFAULT 'pending'
+    status               VARCHAR(20)    NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'confirmed', 'preparing', 'completed', 'delivered', 'canceled')),
 
     total_price          DECIMAL(10, 2) NOT NULL DEFAULT 0.0 CHECK (total_price >= 0),
 
-    created_at           DATETIME             DEFAULT GETDATE(),
-    updated_at           DATETIME             DEFAULT GETDATE(),
+    created_at           DATETIME                DEFAULT GETDATE(),
+    updated_at           DATETIME                DEFAULT GETDATE(),
+    deleted_at           DATETIME,
 
     FOREIGN KEY (order_id)
         REFERENCES orders (id)
@@ -344,13 +345,16 @@ CREATE INDEX idx_suborders_order ON suborders (order_id);
 -- =======================
 CREATE TABLE order_items
 (
-    id          BIGINT IDENTITY PRIMARY KEY,
-    suborder_id BIGINT        NOT NULL,
-    dish_id     BIGINT        NOT NULL,
-    restaurant_branch_id BIGINT NOT NULL,
+    id                   BIGINT IDENTITY PRIMARY KEY,
+    suborder_id          BIGINT         NOT NULL,
+    dish_id              BIGINT         NOT NULL,
 
-    quantity    INT           NOT NULL CHECK (quantity > 0),
-    price       DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+    quantity             INT            NOT NULL CHECK (quantity > 0),
+    price                DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+
+    created_at           DATETIME                DEFAULT GETDATE(),
+    updated_at           DATETIME                DEFAULT GETDATE(),
+    deleted_at           DATETIME,
 
     CONSTRAINT uq_suborder_dish UNIQUE (suborder_id, dish_id),
 
@@ -360,9 +364,6 @@ CREATE TABLE order_items
 
     FOREIGN KEY (dish_id)
         REFERENCES dishes (id),
-
-    FOREIGN KEY (restaurant_branch_id)
-        REFERENCES restaurant_branches (id)
 );
 
 
