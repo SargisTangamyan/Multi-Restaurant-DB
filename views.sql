@@ -1,307 +1,495 @@
-/*
-===========================================================
-CORE & ADVANCED VIEWS
-Multi-Restaurant Food Ordering System
-===========================================================
-
-*/
-
 USE restaurant_project;
 GO
 
-
 /*
-===========================================================
-1. USER ORDERS
-===========================================================
+==========================================================
+VIEWS TEMPLATE
+Restaurant Project
+==========================================================
 */
-CREATE VIEW user_orders_view AS
-SELECT
-    o.id AS order_id,
-    o.user_id,
-    o.total_price,
-    o.status,
-    o.created_at
-FROM orders o;
 
-
-/*
-===========================================================
-2. FULL ORDER DETAILS (MAIN JOIN)
-===========================================================
-*/
-CREATE VIEW order_full_details_view AS
+/*----------------------------------------------------------
+ACTIVE USERS
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_active_users
+AS
 SELECT
-    o.id AS order_id,
+    u.id,
+    u.username,
+    u.profile_image,
     u.first_name,
     u.last_name,
-    r.name AS restaurant_name,
-    d.name AS dish_name,
-    oi.quantity,
-    oi.price,
-    s.status AS suborder_status
-FROM orders o
-JOIN users u ON o.user_id = u.id
-JOIN suborders s ON s.order_id = o.id
-JOIN order_items oi ON oi.suborder_id = s.id
-JOIN dishes d ON oi.dish_id = d.id
-JOIN restaurant_branches rb ON s.restaurant_branch_id = rb.id
-JOIN restaurants r ON rb.restaurant_id = r.id;
+    u.city,
+    u.phone_number,
+    u.address,
+    u.email,
+    u.email_verified_at,
+    u.role,
+    u.stripe_id,
+    u.pm_type,
+    u.pm_last_four,
+    u.trial_ends_at,
+    u.created_at,
+    u.updated_at
+FROM users u
+WHERE u.deleted_at IS NULL;
+GO
 
 
-/*
-===========================================================
-3. RESTAURANT MENU
-===========================================================
-*/
-CREATE VIEW restaurant_menu_view AS
+/*----------------------------------------------------------
+RESTAURANT OVERVIEW
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_restaurants_overview
+AS
 SELECT
-    r.id AS restaurant_id,
-    r.name AS restaurant_name,
-    d.id AS dish_id,
-    d.name,
-    d.price,
-    d.average_rating,
-    d.is_available
+    r.id,
+    r.owner_id,
+    u.username AS owner_username,
+    u.first_name AS owner_first_name,
+    u.last_name AS owner_last_name,
+    r.name,
+    r.description,
+    r.phone_number,
+    r.image,
+    r.created_at,
+    r.updated_at
 FROM restaurants r
-JOIN dishes d ON r.id = d.restaurant_id;
+         INNER JOIN users u
+                    ON u.id = r.owner_id
+WHERE r.deleted_at IS NULL
+  AND u.deleted_at IS NULL;
+GO
 
 
-/*
-===========================================================
-4. AVAILABLE DISHES ONLY
-===========================================================
-*/
-CREATE VIEW available_dishes_view AS
-SELECT *
-FROM dishes
-WHERE is_available = 1;
-
-
-/*
-===========================================================
-5. TOP RATED DISHES
-===========================================================
-*/
-CREATE VIEW top_rated_dishes_view AS
-SELECT *
-FROM dishes
-WHERE average_rating >= 4.5;
-
-
-/*
-===========================================================
-6. USER CART DETAILS
-===========================================================
-*/
-CREATE VIEW user_cart_view AS
+/*----------------------------------------------------------
+RESTAURANT BRANCHES OVERVIEW
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_restaurant_branches_overview
+AS
 SELECT
-    c.user_id,
-    d.name AS dish_name,
-    ci.quantity,
-    d.price,
-    ci.quantity * d.price AS total_price
-FROM carts c
-JOIN cart_items ci ON c.id = ci.cart_id
-JOIN dishes d ON ci.dish_id = d.id;
-
-
-/*
-===========================================================
-7. WISHLIST DETAILS
-===========================================================
-*/
-CREATE VIEW wishlist_details_view AS
-SELECT
-    w.user_id,
-    d.name AS dish_name
-FROM wishlists w
-JOIN dishes d ON w.dish_id = d.id;
-
-
-/*
-===========================================================
-8. MOST WISHLISTED DISHES
-===========================================================
-*/
-CREATE VIEW most_wishlisted_dishes_view AS
-SELECT
-    d.id,
-    d.name,
-    COUNT(*) AS times_added
-FROM wishlists w
-JOIN dishes d ON w.dish_id = d.id
-GROUP BY d.id, d.name;
-
-
-/*
-===========================================================
-9. ALLERGENIC DISHES
-===========================================================
-*/
-CREATE VIEW allergenic_dishes_view AS
-SELECT DISTINCT
-    d.id,
-    d.name,
-    i.name AS ingredient
-FROM dishes d
-JOIN dish_ingredients di ON d.id = di.dish_id
-JOIN ingredients i ON di.ingredient_id = i.id
-WHERE i.is_allergic = 1;
-
-
-/*
-===========================================================
-10. USER ALLERGY MATCH (IMPORTANT)
-===========================================================
-*/
-CREATE VIEW user_allergy_risk_view AS
-SELECT
-    ua.user_id,
-    d.name AS dish_name,
-    i.name AS allergen
-FROM user_allergies ua
-JOIN ingredients i ON ua.ingredient_id = i.id
-JOIN dish_ingredients di ON di.ingredient_id = i.id
-JOIN dishes d ON d.id = di.dish_id;
-
-
-/*
-===========================================================
-11. RESTAURANT ORDERS (SUBORDERS)
-===========================================================
-*/
-CREATE VIEW restaurant_orders_view AS
-SELECT
+    rb.id,
+    rb.restaurant_id,
     r.name AS restaurant_name,
     rb.city,
-    s.id AS suborder_id,
-    s.status,
-    s.total_price
-FROM suborders s
-JOIN restaurant_branches rb ON s.restaurant_branch_id = rb.id
-JOIN restaurants r ON rb.restaurant_id = r.id;
+    rb.address,
+    rb.phone_number,
+    rb.created_at,
+    rb.updated_at
+FROM restaurant_branches rb
+         INNER JOIN restaurants r
+                    ON r.id = rb.restaurant_id
+WHERE rb.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
 
 
-/*
-===========================================================
-12. ORDERS BY STATUS
-===========================================================
-*/
-CREATE VIEW orders_by_status_view AS
+/*----------------------------------------------------------
+RESTAURANT STAFF OVERVIEW
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_restaurant_staff_overview
+AS
 SELECT
-    status,
-    COUNT(*) AS total_orders
-FROM orders
-GROUP BY status;
-
-
-/*
-===========================================================
-13. DAILY ORDERS
-===========================================================
-*/
-CREATE VIEW daily_orders_view AS
-SELECT
-    CAST(created_at AS DATE) AS order_date,
-    COUNT(*) AS total_orders
-FROM orders
-GROUP BY CAST(created_at AS DATE);
-
-
-/*
-===========================================================
-14. REVENUE BY USER
-===========================================================
-*/
-CREATE VIEW revenue_per_user_view AS
-SELECT
-    user_id,
-    SUM(total_price) AS total_spent
-FROM orders
-GROUP BY user_id;
-
-
-/*
-===========================================================
-15. REVENUE BY RESTAURANT
-===========================================================
-*/
-CREATE VIEW revenue_per_restaurant_view AS
-SELECT
-    r.name,
-    SUM(s.total_price) AS revenue
-FROM suborders s
-JOIN restaurant_branches rb ON s.restaurant_branch_id = rb.id
-JOIN restaurants r ON rb.restaurant_id = r.id
-GROUP BY r.name;
-
-
-/*
-===========================================================
-16. DISH RATING SUMMARY
-===========================================================
-*/
-CREATE VIEW dish_rating_summary_view AS
-SELECT
-    d.id,
-    d.name,
-    AVG(dr.rating) AS avg_rating,
-    COUNT(dr.id) AS review_count
-FROM dishes d
-LEFT JOIN dish_reviews dr ON d.id = dr.dish_id
-GROUP BY d.id, d.name;
-
-
-/*
-===========================================================
-17. MOST ORDERED DISHES
-===========================================================
-*/
-CREATE VIEW most_ordered_dishes_view AS
-SELECT
-    d.id,
-    d.name,
-    SUM(oi.quantity) AS total_ordered
-FROM order_items oi
-JOIN dishes d ON oi.dish_id = d.id
-GROUP BY d.id, d.name;
-
-
-/*
-===========================================================
-18. STAFF WORKLOAD
-===========================================================
-*/
-CREATE VIEW staff_workload_view AS
-SELECT
+    rs.id,
     rs.user_id,
+    u.username,
+    u.first_name,
+    u.last_name,
+    u.email,
     rs.restaurant_id,
-    COUNT(s.id) AS total_suborders
+    r.name AS restaurant_name,
+    rs.role,
+    rs.created_at,
+    rs.updated_at
 FROM restaurant_staffs rs
-JOIN restaurant_branches rb ON rs.restaurant_id = rb.restaurant_id
-JOIN suborders s ON rb.id = s.restaurant_branch_id
-GROUP BY rs.user_id, rs.restaurant_id;
+         INNER JOIN users u
+                    ON u.id = rs.user_id
+         INNER JOIN restaurants r
+                    ON r.id = rs.restaurant_id
+WHERE rs.deleted_at IS NULL
+  AND u.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
 
 
-/*
-===========================================================
-19. ACTIVE ORDERS
-===========================================================
-*/
-CREATE VIEW active_orders_view AS
-SELECT *
-FROM orders
-WHERE status IN ('pending', 'confirmed', 'preparing');
+/*----------------------------------------------------------
+CATEGORIES WITH PARENT
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_categories_hierarchy
+AS
+SELECT
+    c.id,
+    c.name,
+    c.slug,
+    c.parent_id,
+    p.name AS parent_name,
+    p.slug AS parent_slug,
+    c.created_at,
+    c.updated_at
+FROM categories c
+         LEFT JOIN categories p
+                   ON p.id = c.parent_id
+WHERE c.deleted_at IS NULL;
+GO
 
 
-/*
-===========================================================
-20. COMPLETED ORDERS
-===========================================================
-*/
-CREATE VIEW completed_orders_view AS
-SELECT *
-FROM orders
-WHERE status IN ('completed', 'delivered');
+/*----------------------------------------------------------
+DISH CATALOG
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_dish_catalog
+AS
+SELECT
+    d.id,
+    d.slug,
+    d.category_id,
+    c.name AS category_name,
+    c.slug AS category_slug,
+    d.restaurant_id,
+    r.name AS restaurant_name,
+    d.name AS dish_name,
+    d.description,
+    d.price,
+    d.image,
+    d.thumbnail,
+    d.average_rating,
+    d.reviews_count,
+    d.is_available,
+    d.created_at,
+    d.updated_at
+FROM dishes d
+         INNER JOIN categories c
+                    ON c.id = d.category_id
+         INNER JOIN restaurants r
+                    ON r.id = d.restaurant_id
+WHERE d.deleted_at IS NULL
+  AND c.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
 
+
+/*----------------------------------------------------------
+AVAILABLE DISHES ONLY
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_available_dishes
+AS
+SELECT
+    d.id,
+    d.slug,
+    d.category_id,
+    c.name AS category_name,
+    d.restaurant_id,
+    r.name AS restaurant_name,
+    d.name AS dish_name,
+    d.price,
+    d.image,
+    d.thumbnail,
+    d.average_rating,
+    d.reviews_count,
+    d.created_at
+FROM dishes d
+         INNER JOIN categories c
+                    ON c.id = d.category_id
+         INNER JOIN restaurants r
+                    ON r.id = d.restaurant_id
+WHERE d.deleted_at IS NULL
+  AND c.deleted_at IS NULL
+  AND r.deleted_at IS NULL
+  AND d.is_available = 1;
+GO
+
+
+/*----------------------------------------------------------
+INGREDIENTS
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_ingredients
+AS
+SELECT
+    i.id,
+    i.name,
+    i.slug,
+    i.unit,
+    i.is_allergic,
+    i.created_at,
+    i.updated_at
+FROM ingredients i;
+GO
+
+
+/*----------------------------------------------------------
+DISH INGREDIENTS DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_dish_ingredients_detail
+AS
+SELECT
+    di.dish_id,
+    d.name AS dish_name,
+    di.ingredient_id,
+    i.name AS ingredient_name,
+    i.slug AS ingredient_slug,
+    i.unit,
+    i.is_allergic,
+    di.quantity
+FROM dish_ingredients di
+         INNER JOIN dishes d
+                    ON d.id = di.dish_id
+         INNER JOIN ingredients i
+                    ON i.id = di.ingredient_id
+WHERE d.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+USER ALLERGIES DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_user_allergies_detail
+AS
+SELECT
+    ua.user_id,
+    u.username,
+    u.first_name,
+    u.last_name,
+    ua.ingredient_id,
+    i.name AS ingredient_name,
+    i.slug AS ingredient_slug,
+    i.unit,
+    i.is_allergic
+FROM user_allergies ua
+         INNER JOIN users u
+                    ON u.id = ua.user_id
+         INNER JOIN ingredients i
+                    ON i.id = ua.ingredient_id
+WHERE u.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+CART ITEMS DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_cart_items_detail
+AS
+SELECT
+    ci.id AS cart_item_id,
+    ci.cart_id,
+    c.user_id,
+    u.username,
+    ci.dish_id,
+    d.name AS dish_name,
+    d.price AS dish_price,
+    ci.quantity,
+    (ci.quantity * d.price) AS line_total,
+    ci.created_at,
+    ci.updated_at
+FROM cart_items ci
+         INNER JOIN carts c
+                    ON c.id = ci.cart_id
+         INNER JOIN users u
+                    ON u.id = c.user_id
+         INNER JOIN dishes d
+                    ON d.id = ci.dish_id
+WHERE u.deleted_at IS NULL
+  AND d.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+ORDERS SUMMARY
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_orders_summary
+AS
+SELECT
+    o.id,
+    o.user_id,
+    u.username,
+    u.first_name,
+    u.last_name,
+    o.total_price,
+    o.status,
+    o.payment_method,
+    o.delivery_address,
+    o.contact_phone,
+    o.delivery_fee,
+    o.created_at,
+    o.updated_at
+FROM orders o
+         INNER JOIN users u
+                    ON u.id = o.user_id
+WHERE o.deleted_at IS NULL
+  AND u.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+SUBORDERS SUMMARY
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_suborders_summary
+AS
+SELECT
+    so.id,
+    so.order_id,
+    o.user_id,
+    u.username,
+    so.restaurant_branch_id,
+    rb.address AS branch_address,
+    rb.city AS branch_city,
+    r.id AS restaurant_id,
+    r.name AS restaurant_name,
+    so.status,
+    so.total_price,
+    so.created_at,
+    so.updated_at
+FROM suborders so
+         INNER JOIN orders o
+                    ON o.id = so.order_id
+         INNER JOIN users u
+                    ON u.id = o.user_id
+         INNER JOIN restaurant_branches rb
+                    ON rb.id = so.restaurant_branch_id
+         INNER JOIN restaurants r
+                    ON r.id = rb.restaurant_id
+WHERE so.deleted_at IS NULL
+  AND o.deleted_at IS NULL
+  AND u.deleted_at IS NULL
+  AND rb.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+ORDER ITEMS DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_order_items_detail
+AS
+SELECT
+    oi.id AS order_item_id,
+    oi.suborder_id,
+    so.order_id,
+    so.restaurant_branch_id,
+    rb.address AS branch_address,
+    rb.city AS branch_city,
+    oi.dish_id,
+    d.name AS dish_name,
+    d.price AS current_dish_price,
+    oi.quantity,
+    oi.price AS item_price_at_order_time,
+    (oi.quantity * oi.price) AS line_total,
+    oi.created_at,
+    oi.updated_at
+FROM order_items oi
+         INNER JOIN suborders so
+                    ON so.id = oi.suborder_id
+         INNER JOIN restaurant_branches rb
+                    ON rb.id = so.restaurant_branch_id
+         INNER JOIN dishes d
+                    ON d.id = oi.dish_id
+WHERE oi.deleted_at IS NULL
+  AND so.deleted_at IS NULL
+  AND rb.deleted_at IS NULL
+  AND d.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+DISH REVIEWS DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_dish_reviews_detail
+AS
+SELECT
+    dr.id,
+    dr.user_id,
+    u.username,
+    u.first_name,
+    u.last_name,
+    dr.dish_id,
+    d.name AS dish_name,
+    d.restaurant_id,
+    r.name AS restaurant_name,
+    dr.rating,
+    dr.comment,
+    dr.created_at,
+    dr.updated_at
+FROM dish_reviews dr
+         INNER JOIN users u
+                    ON u.id = dr.user_id
+         INNER JOIN dishes d
+                    ON d.id = dr.dish_id
+         INNER JOIN restaurants r
+                    ON r.id = d.restaurant_id
+WHERE u.deleted_at IS NULL
+  AND d.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+WISHLISTS DETAIL
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_wishlists_detail
+AS
+SELECT
+    w.user_id,
+    u.username,
+    u.first_name,
+    u.last_name,
+    w.dish_id,
+    d.name AS dish_name,
+    d.slug AS dish_slug,
+    d.price,
+    d.is_available,
+    d.restaurant_id,
+    r.name AS restaurant_name
+FROM wishlists w
+         INNER JOIN users u
+                    ON u.id = w.user_id
+         INNER JOIN dishes d
+                    ON d.id = w.dish_id
+         INNER JOIN restaurants r
+                    ON r.id = d.restaurant_id
+WHERE u.deleted_at IS NULL
+  AND d.deleted_at IS NULL
+  AND r.deleted_at IS NULL;
+GO
+
+
+/*----------------------------------------------------------
+DISH PERFORMANCE SUMMARY
+----------------------------------------------------------*/
+CREATE OR ALTER VIEW vw_dish_performance_summary
+AS
+SELECT
+    d.id,
+    d.name AS dish_name,
+    d.restaurant_id,
+    r.name AS restaurant_name,
+    d.category_id,
+    c.name AS category_name,
+    d.price,
+    d.average_rating,
+    d.reviews_count,
+    d.is_available,
+    COUNT(DISTINCT oi.id) AS total_order_items,
+    SUM(oi.quantity) AS total_quantity_sold,
+    COUNT(DISTINCT dr.id) AS total_reviews
+FROM dishes d
+         INNER JOIN restaurants r
+                    ON r.id = d.restaurant_id
+         INNER JOIN categories c
+                    ON c.id = d.category_id
+         LEFT JOIN order_items oi
+                   ON oi.dish_id = d.id
+                       AND oi.deleted_at IS NULL
+         LEFT JOIN dish_reviews dr
+                   ON dr.dish_id = d.id
+WHERE d.deleted_at IS NULL
+  AND r.deleted_at IS NULL
+  AND c.deleted_at IS NULL
+GROUP BY
+    d.id,
+    d.name,
+    d.restaurant_id,
+    r.name,
+    d.category_id,
+    c.name,
+    d.price,
+    d.average_rating,
+    d.reviews_count,
+    d.is_available;
+GO
