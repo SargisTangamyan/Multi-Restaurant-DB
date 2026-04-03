@@ -54,8 +54,6 @@ CREATE TABLE users
     deleted_at        DATETIME
 );
 
-CREATE INDEX idx_users_deleted_at ON users (deleted_at);
-
 
 -- =======================
 -- RESTAURANTS
@@ -77,8 +75,6 @@ CREATE TABLE restaurants
 
     FOREIGN KEY (owner_id) REFERENCES users (id)
 );
-
-CREATE INDEX idx_restaurants_deleted_at ON restaurants (deleted_at);
 
 
 -- =======================
@@ -103,8 +99,6 @@ CREATE TABLE restaurant_branches
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_branches_deleted_at ON restaurant_branches (deleted_at);
-
 
 -- =======================
 -- RESTAURANT STAFF
@@ -128,8 +122,6 @@ CREATE TABLE restaurant_staffs
     FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_staff_deleted_at ON restaurant_staffs (deleted_at);
-
 
 -- =======================
 -- CATEGORIES
@@ -147,8 +139,6 @@ CREATE TABLE categories
 
     FOREIGN KEY (parent_id) REFERENCES categories (id)
 );
-
-CREATE INDEX idx_categories_deleted_at ON categories (deleted_at);
 
 
 -- =======================
@@ -179,10 +169,6 @@ CREATE TABLE dishes
     FOREIGN KEY (category_id) REFERENCES categories (id),
     FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE
 );
-
-CREATE UNIQUE INDEX idx_dishes_restaurant_name ON dishes (restaurant_id, name);
-CREATE INDEX idx_dishes_category ON dishes (category_id);
-CREATE INDEX idx_dishes_deleted_at ON dishes (deleted_at);
 
 
 -- =======================
@@ -307,9 +293,6 @@ CREATE TABLE orders
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_orders_user ON orders (user_id);
-CREATE INDEX idx_orders_deleted_at ON orders (deleted_at);
-
 
 -- =======================
 -- SUBORDERS
@@ -336,8 +319,6 @@ CREATE TABLE suborders
     FOREIGN KEY (restaurant_branch_id)
         REFERENCES restaurant_branches (id)
 );
-
-CREATE INDEX idx_suborders_order ON suborders (order_id);
 
 
 -- =======================
@@ -402,5 +383,3 @@ CREATE TABLE dish_reviews
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (dish_id) REFERENCES dishes (id) ON DELETE CASCADE
 );
-
-CREATE INDEX idx_reviews_dish ON dish_reviews (dish_id);
