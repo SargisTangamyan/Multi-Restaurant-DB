@@ -136,8 +136,8 @@ categories ──< categories (self-ref parent_id)
 
 1. **Create the database** (optional — edit the target database name in the scripts as needed):
    ```sql
-   CREATE DATABASE EATO;
-   USE EATO;
+   CREATE DATABASE restaurant_project;
+   USE restaurant_project;
    ```
 
 2. **Create schema and tables:**
