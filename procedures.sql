@@ -76,7 +76,8 @@ CREATE OR ALTER PROCEDURE add_dish
     @restaurant_id BIGINT,
     @category_id   BIGINT,
     @name          VARCHAR(255),
-    @price         DECIMAL(10,2)
+    @price         DECIMAL(10,2),
+    @image         VARCHAR(255) = 'default.jpg'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -93,7 +94,7 @@ BEGIN
     END;
 
     INSERT INTO dishes (slug, category_id, restaurant_id, name, price, image)
-    VALUES (@slug, @category_id, @restaurant_id, @name, @price, 'default.jpg');
+    VALUES (@slug, @category_id, @restaurant_id, @name, @price, @image);
 END;
 GO
 
@@ -111,8 +112,7 @@ BEGIN
     SET NOCOUNT ON;
 
     UPDATE dishes
-    SET is_available = @is_available,
-        updated_at   = GETDATE()
+    SET is_available = @is_available
     WHERE id = @dish_id;
 END;
 GO
